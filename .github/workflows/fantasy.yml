@@ -1,0 +1,46 @@
+name: Weekly Fantasy Football Analyzer
+on:
+  schedule:
+    - cron: '0 12 * * 2' # Tuesdays at 8:00 AM EST
+  workflow_dispatch: # Lets you run it manually
+
+jobs:
+  analyze-fantasy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Fetch Current League Data
+        run: python fantasy_analyst.py
+        env:
+          FANTASY_LEAGUE_ID: ${{ secrets.FANTASY_LEAGUE_ID }}
+          FANTASY_ROSTER_ID: ${{ secrets.FANTASY_ROSTER_ID }}
+
+      - name: Run Claude Code Analysis
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read weekly_data.json and CLAUDE.md. 
+            Provide a comprehensive team report for this week:
+            1. Assess my current roster's strengths and weaknesses.
+            2. Suggest sit/start players based on matchups.
+            3. Run prompt: "Evaluate my WR options for this week. Use recent target share, CB matchups, Vegas implied totals, and weather. Rank them from safest to highest upside."
+            4. Run prompt: "Identify under-40% rostered players likely to break out in the next 3 weeks. Use snap count growth, injury opportunity, and coaching trends."
+            
+            Save the entire output to 'weekly_strategy_report.md'.
+
+      - name: Upload Weekly Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-strategy-report
+          path: weekly_strategy_report.md
